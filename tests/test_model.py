@@ -29,7 +29,7 @@ def test_voices_are_sorted_naturally(tts):
 def test_generate_one_clip_per_sentence_with_gaps(tts):
     """Two sentences give two clips joined by the 150 ms gap."""
     audio = tts.generate("Merhaba. Nasılsınız?", emotion="happy")
-    assert tts._model.spoken == ["[mutlu] Merhaba.", "[mutlu] Nasılsınız?"]
+    assert tts._model.spoken == ["[mutlu] merhaba.", "[mutlu] nasılsınız?"]
     assert audio.dtype == np.float32
     assert len(audio) == 2 * SR + int(SR * 0.15)
 

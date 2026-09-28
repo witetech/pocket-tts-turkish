@@ -36,7 +36,7 @@ def test_generate_writes_a_wav(fake_tts, tmp_path, capsys):
     assert cli.main(["generate", "--text", "Merhaba. Nasılsınız?", "--emotion", "calm", "-o", str(out)]) == 0
     rate, data = wavfile.read(out)
     assert rate == SR and len(data) == 2 * SR + int(SR * 0.15)
-    assert fake_tts._model.spoken == ["[sakin] Merhaba.", "[sakin] Nasılsınız?"]
+    assert fake_tts._model.spoken == ["[sakin] merhaba.", "[sakin] nasılsınız?"]
     assert str(out) in capsys.readouterr().out
 
 

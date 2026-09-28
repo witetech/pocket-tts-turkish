@@ -8,7 +8,7 @@ from pathlib import Path
 from . import __version__
 from .audio import cut_reference, load_audio, save_wav
 from .model import DEFAULT_REPO, TurkishTTS, _model_folder, _natural_key
-from .normalize import normalize
+from .normalizer import normalize
 
 _RATE = 24000
 

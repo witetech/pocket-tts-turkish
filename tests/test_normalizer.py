@@ -1,6 +1,6 @@
 import pytest
 
-from pocket_tts_turkish.normalize import DEFAULT_PRONUNCIATIONS, normalize
+from pocket_tts_turkish.normalizer import DEFAULT_PRONUNCIATIONS, normalize
 
 
 @pytest.mark.parametrize("raw,expected", [
@@ -40,17 +40,25 @@ def test_decimal_precision(raw, expected):
     assert normalize(raw) == expected
 
 
-def test_phone_numbers_are_read_digit_by_digit():
-    """Grouped phone numbers become one digit word per digit."""
-    out = normalize("Telefonunuz 0532 123 45 67 olarak kayıtlı.")
-    assert "sıfır beş üç iki bir iki üç dört beş altı yedi" in out
-    assert "beş yüz otuz iki" not in out
+def test_phone_numbers_are_read_in_groups():
+    """Phone numbers are read group by group, each group as a number."""
+    assert normalize("Telefonunuz 0532 123 45 67 olarak kayıtlı.") == (
+        "Telefonunuz sıfır beş yüz otuz iki, yüz yirmi üç, kırk beş, altmış yedi olarak kayıtlı.")
+    assert normalize("+90 212 555 12 34") == "doksan, iki yüz on iki, beş yüz elli beş, on iki, otuz dört"
+    assert normalize("05321112233") == "sıfır beş yüz otuz iki, yüz on bir, yirmi iki, otuz üç"
 
 
-def test_long_numbers_and_leading_zero_codes_are_read_digit_by_digit():
-    """Seven or more digits, or a leading zero, mark an identifier."""
-    assert "dört iki bir altı üç sekiz sıfır" in normalize("Müşteri numaranız 4216380.")
+def test_long_codes_are_grouped():
+    """Unseparated runs are grouped; a short code with a leading zero is read digit by digit."""
+    assert normalize("Müşteri numaranız 4216380.") == "Müşteri numaranız dört yüz yirmi bir, altmış üç, seksen."
+    assert normalize("00112233") == "sıfır sıfır, on bir, yirmi iki, otuz üç"
     assert "sıfır dört bir yedi" in normalize("Kayıt numaranız 0417")
+
+
+def test_repeated_groups_are_merged():
+    """Identical neighbouring groups are read as one number, so no word repeats back to back."""
+    assert normalize("0850 555 55 55") == "sıfır sekiz yüz elli, beş yüz elli beş, beş bin beş yüz elli beş"
+    assert normalize("0850 222 00 00") == "sıfır sekiz yüz elli, iki yüz yirmi iki, sıfır sıfır, sıfır sıfır"
 
 
 def test_dates_and_times():
