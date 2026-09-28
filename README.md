@@ -124,47 +124,45 @@ tts = TurkishTTS.from_pretrained(pronunciations={"WhatsApp": "Vatsap", "iPhone":
 
 ## Evaluation
 
-The model was compared with eight public Turkish-capable systems on public test sets:
+The model was compared with eight public Turkish-capable systems: FreyaTTS-small, Piper
+(`tr_TR-dfki-medium`), MMS-TTS, VoxCPM2, Trendyol-TTS, Chatterbox Multilingual, Qwen3-TTS 0.6B Turkish
+and XTTS-v2. Two public test sets were used: Freya-TR-Eval (T1, 495 everyday conversational
+sentences) and the FLEURS Turkish test set (T2, 200 long read sentences). Every system received the
+same text, with numbers already written as words. The word error rate (WER) is the share of words
+that Whisper large-v3 transcribes differently from the input text, measured on audio band-limited to
+8 kHz as in the Freya-TR-Eval recipe; lower is better. Speed was measured on one RTX 5090.
 
-- **T1**: Freya-TR-Eval, 495 everyday conversational sentences
-- **T2**: FLEURS Turkish test, 200 long read sentences
-- **T3**: 50 sentences with large numbers, phone numbers, dates, prices and brand names
+### Speed and accuracy
 
-Every system received the same text, with numbers already written as words, and every
-voice-cloning system received the same two reference voices.
+![Speed against intelligibility](https://huggingface.co/wite-tech/pocket-tts-turkish-6l/resolve/main/figures/fig2_speed_vs_wer.png)
 
-| system | params (M) | WER T1 | WER T2 | CER T3 | UTMOS | speaker similarity | RTF GPU | RTF CPU | GPU memory (MiB) | cloning | licence |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| **Pocket TTS Turkish** | 109.5 | 1.9 | 3.9 | 2.1 | 3.21 | 0.950 | 0.048 | 0.20 | 1704 | yes | CC-BY-4.0 |
-| FreyaTTS-small | 183.2 | 11.7 | 43.1 | 10.5 | 2.81 | – | 0.049 | 1.91 | 2154 | no | Apache-2.0 |
-| Piper tr_TR-dfki-medium | 15.8 | 3.2 | 5.1 | 2.0 | 3.70 | – | 0.015 | 0.01 | 504 | no | MIT |
-| MMS-TTS tur | 36.3 | 6.1 | 8.5 | 6.1 | 3.79 | – | 0.004 | 0.19 | 1040 | no | CC-BY-NC-4.0 |
-| VoxCPM2 | 2384.2 | 2.1 | 3.9 | 3.7 | 3.12 | 0.958 | 0.243 | – | 6934 | yes | Apache-2.0 |
-| Trendyol-TTS | 2384.2 | 1.1 | 3.1 | 1.7 | 3.84 | – | 0.337 | – | 6934 | no | MIT |
-| Chatterbox Multilingual | 799.9 | 2.1 | 8.6 | 2.2 | 3.54 | 0.959 | 0.232 | – | 4650 | yes | MIT |
-| Qwen3-TTS 0.6B Turkish | 914.6 | 1.7 | 3.9 | 1.7 | 3.81 | 0.936 | 0.439 | – | 3152 | yes | Apache-2.0 |
-| XTTS-v2 | 466.9 | 3.8 | 5.5 | 3.0 | 3.12 | 0.958 | 0.116 | – | 2896 | yes | CPML |
+Each bubble is one system. Its horizontal position is the real-time factor, the synthesis time
+divided by the length of the audio, on a log scale: further left is faster, and 0.1 means ten times
+faster than real time. Its height is the WER on T1, and its area follows the number of parameters.
+The best place to be is the lower left.
 
-- **WER / CER** (%, lower is better): transcripts by Whisper large-v3 after the audio is
-  band-limited to 8 kHz, compared with the input text after the same Turkish normalization, at
-  corpus level (the Freya-TR-Eval recipe).
-- **UTMOS** (1 to 5, higher is better): an automatic prediction of how natural the speech sounds.
-- **Speaker similarity** (higher is better): cosine similarity of WavLM speaker embeddings between
-  the output and the reference voice, for cloning systems.
-- **RTF** (lower is faster): synthesis time divided by audio length, on one RTX 5090 or one CPU
-  thread; "–" means not measured.
-- Pocket TTS Turkish was run with the same sentence-by-sentence generation this package uses.
-- The two reference voices given to all cloning systems (`female_1` and `male_3` here) are voices
-  Pocket TTS Turkish was trained on, which favours it on speaker similarity.
-- Trendyol-TTS does not follow a reference voice (similarity 0.68), so it is not counted as cloning.
+Pocket TTS Turkish reaches 1.9% WER at a real-time factor of 0.048, about 20 times faster than real
+time, with 110 million parameters. The two systems with a lower WER, Trendyol-TTS (1.1%) and
+Qwen3-TTS (1.7%), are 8 to 22 times larger and 7 to 9 times slower. The two systems that are faster,
+Piper and MMS-TTS, make more errors (3.2% and 6.1%) and cannot clone a voice.
+
+### What a real-time voice agent needs
+
+![What a real-time voice agent needs, and which systems deliver it](https://huggingface.co/wite-tech/pocket-tts-turkish-6l/resolve/main/figures/fig8_capability_matrix.png)
+
+The columns are nine requirements for a voice agent that answers in real time: it streams audio,
+clones a reference voice, has an emotion control, runs on a CPU faster than real time, keeps the WER
+at or below 2.5% on T1 and 5% on T2, synthesizes a 5-second reply in under half a second, uses less
+than 2 GB of GPU memory, and has a licence that allows commercial use. A filled circle means the
+system meets the requirement and a cross means it does not; the number on the right is the total.
+
+Pocket TTS Turkish is the only system that meets all nine; the next best, VoxCPM2, meets six. A
+requirement counts as met only where it was measured, so systems that were not run on a CPU are
+marked as not running on one.
 
 ## Limitations
 
 - Turkish only.
-- The first consonant of a sentence is occasionally clipped.
-- Long runs of the same digit, such as `00 00`, are occasionally misread.
-- Text is prepared by rules. Unusual formats, such as codes that mix letters and digits, may be read
-  in an unexpected way; check them with `prepare()`.
 - The whole text is generated before it is returned; there is no streaming output yet.
 
 ## Responsible use
