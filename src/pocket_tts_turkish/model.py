@@ -46,7 +46,8 @@ def _model_folder(source: str | os.PathLike, revision: str | None, token: str | 
         raise ValueError(f"{source} is a file; pass a model folder or a Hugging Face repo id")
     from huggingface_hub import snapshot_download
 
-    return Path(snapshot_download(repo_id=str(source), revision=revision, token=token, allow_patterns=_DOWNLOAD))
+    return Path(snapshot_download(repo_id=str(source), revision=revision, token=token,
+                                  allow_patterns=_DOWNLOAD, ignore_patterns=["voices/*/*"]))
 
 
 def _local_config(folder: Path) -> tuple[str, Path]:
