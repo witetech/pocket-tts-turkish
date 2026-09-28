@@ -26,10 +26,14 @@ dependencies = [
     "pyyaml>=6",
     "scipy>=1.5",
     "sentencepiece>=0.2.1",
+    "soundfile>=0.12",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+
+[project.scripts]
+pocket-tts-turkish = "pocket_tts_turkish.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/witetech/pocket-tts-turkish"

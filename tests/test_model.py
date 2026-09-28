@@ -4,35 +4,12 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import torch
 from scipy.io import wavfile
 
 from pocket_tts_turkish import TextFrontend, TurkishTTS, save_wav
 from pocket_tts_turkish.model import _join, _model_folder
 
-from .test_frontend import FakeTokenizer
-
-SR = 24000
-
-
-class FakeModel:
-    """Stands in for the Pocket TTS model: one second of a constant tone per sentence."""
-
-    sample_rate = SR
-
-    def __init__(self):
-        """Count how often voices are encoded and sentences generated."""
-        self.encoded, self.spoken = [], []
-
-    def get_state_for_audio_prompt(self, path):
-        """Return the path itself as the voice state."""
-        self.encoded.append(path)
-        return path
-
-    def generate_audio(self, state, text):
-        """Return a tensor of ones as long as one second."""
-        self.spoken.append(text)
-        return torch.ones(1, SR)
+from .helpers import SR, FakeModel, FakeTokenizer, speech
 
 
 @pytest.fixture
@@ -116,6 +93,28 @@ def test_model_folder_validation(tmp_path):
         _model_folder(f, None, None)
     with pytest.raises(FileNotFoundError, match="config.yaml"):
         TurkishTTS.from_pretrained(tmp_path)
+
+
+def test_voice_from_file_cuts_and_registers(tts, tmp_path):
+    """A recording is cut at the last pause in 3-5 s and becomes a usable voice."""
+    path = save_wav(tmp_path / "ayse.wav", speech(8.0, [(0.0, 3.4), (3.6, 4.4), (4.6, 7.0)]), SR)
+    assert tts.voice_from_file(path) == "ayse"
+    assert "ayse" in tts.voices and tts.default_voice == "female_1"
+    assert tuple(tts._model.encoded[-1].shape) == (1, int(4.5 * SR))
+    assert len(tts.generate("Merhaba.", voice="ayse")) == SR
+
+
+def test_voice_from_file_checks(tts, tmp_path):
+    """Bundled names are protected, a missing pause warns, and cut=False keeps the clip as is."""
+    path = save_wav(tmp_path / "rec.wav", speech(6.0, [(0.0, 6.0)]), SR)
+    with pytest.raises(ValueError, match="bundled voice"):
+        tts.voice_from_file(path, name="female_1")
+    with pytest.warns(UserWarning, match="no pause"):
+        tts.voice_from_file(path, name="warned")
+    tts.voice_from_file(path, name="uncut", cut=False)
+    assert tts._model.encoded[-1].shape[-1] == 6 * SR
+    with pytest.raises(FileNotFoundError):
+        tts.voice_from_file(tmp_path / "missing.wav")
 
 
 MODEL_DIR = os.environ.get("POCKET_TTS_TURKISH_MODEL")

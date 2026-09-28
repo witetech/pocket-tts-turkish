@@ -2,23 +2,7 @@ import pytest
 
 from pocket_tts_turkish.frontend import EMOTIONS, TextFrontend, resolve_emotion, split_sentences
 
-
-class FakeTokenizer:
-    """Knows every character but ``unknown``; words in ``single`` are one rare piece."""
-
-    def __init__(self, unknown="¶§", single=("Hesabınıza",)):
-        """Configure which characters are unknown and which words are single pieces."""
-        self.unknown, self.single = unknown, set(single)
-
-    def unk_id(self):
-        """Id of the unknown piece."""
-        return 0
-
-    def encode(self, text):
-        """Fake piece ids: one piece for rare words, one per character otherwise."""
-        if text in self.single:
-            return [7]
-        return [0 if ch in self.unknown else 1 for ch in text] or [1]
+from .helpers import FakeTokenizer
 
 
 @pytest.fixture

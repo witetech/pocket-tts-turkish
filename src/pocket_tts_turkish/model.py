@@ -4,11 +4,13 @@ import os
 import re
 import tempfile
 import threading
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
 
 import numpy as np
 
+from .audio import cut_reference, load_audio
 from .frontend import TextFrontend
 
 __all__ = ["DEFAULT_REPO", "TurkishTTS"]
@@ -16,6 +18,7 @@ __all__ = ["DEFAULT_REPO", "TurkishTTS"]
 DEFAULT_REPO = "wite-tech/pocket-tts-turkish-6l"
 SENTENCE_GAP_MS = 150
 _FADE_MS = 8.0
+_MAX_UNCUT_S = 30.0
 _REQUIRED = ("config.yaml", "model.safetensors", "tokenizer.model")
 _DOWNLOAD = [*_REQUIRED, "voices/*.wav"]
 
@@ -104,6 +107,7 @@ class TurkishTTS:
         self._model = model
         self.frontend = frontend
         self._voice_files = dict(voice_files)
+        self._custom: set[str] = set()
         self._states: dict[str, object] = {}
         self._lock = threading.Lock()
 
@@ -141,24 +145,53 @@ class TurkishTTS:
 
     @property
     def voices(self) -> list[str]:
-        """Names of the bundled voices."""
-        return sorted(self._voice_files, key=_natural_key)
+        """Names of the bundled voices and of voices added with ``voice_from_file``."""
+        return sorted(set(self._voice_files) | self._custom, key=_natural_key)
 
     @property
     def default_voice(self) -> str:
-        """The voice used when none is given."""
-        return self.voices[0]
+        """The voice used when none is given: the first bundled voice."""
+        return sorted(self._voice_files, key=_natural_key)[0]
 
     def prepare(self, text: str, emotion: str | None = None) -> list[str]:
         """The sentences the model will read for ``text``, after normalization."""
         return self.frontend.prepare(text, emotion)
 
+    def voice_from_file(self, path: str | os.PathLike, *, name: str | None = None, cut: bool = True) -> str:
+        """Add a voice from a recording and return the name to pass to ``generate``.
+
+        The recording is mixed to mono and resampled. With ``cut=True`` it is cut at a pause between
+        words 3 to 5 seconds in, which the model needs to clone a voice reliably; use ``cut=False``
+        only for a reference that is already cut (at most 30 seconds are used). Only clone voices
+        you have permission to use.
+        """
+        import torch
+
+        name = Path(path).stem if name is None else name
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("voice name must be a non-empty string")
+        if name in self._voice_files:
+            raise ValueError(f"{name!r} is a bundled voice; pass another name")
+        wav = load_audio(path, self.sample_rate)
+        if cut:
+            wav, found = cut_reference(wav, self.sample_rate)
+            if not found:
+                warnings.warn(f"no pause between words found 3-5 s into {path}; cut at "
+                              f"{len(wav) / self.sample_rate:.1f} s, listen to the result", stacklevel=2)
+        else:
+            wav = wav[: int(_MAX_UNCUT_S * self.sample_rate)]
+        with self._lock:
+            self._states[name] = self._model.get_state_for_audio_prompt(torch.from_numpy(wav).unsqueeze(0))
+            self._custom.add(name)
+        return name
+
     def _voice_state(self, voice: str):
         """Encoded voice prompt, computed once per voice."""
+        if isinstance(voice, str) and voice in self._states:
+            return self._states[voice]
         if not isinstance(voice, str) or voice not in self._voice_files:
             raise ValueError(f"unknown voice {voice!r}; available: {', '.join(self.voices)}")
-        if voice not in self._states:
-            self._states[voice] = self._model.get_state_for_audio_prompt(self._voice_files[voice])
+        self._states[voice] = self._model.get_state_for_audio_prompt(self._voice_files[voice])
         return self._states[voice]
 
     def generate(
