@@ -227,10 +227,58 @@ def _spell_digits(digits: str) -> str:
     return " ".join(_DIGITS[d] for d in digits)
 
 
+def _group_digits(digits: str) -> list[str]:
+    """Split a digit run the way Turkish numbers are read aloud: 0555 123 45 67, 555 123 45 67, 421 63 80."""
+    n = len(digits)
+    if n <= 4:
+        return [digits]
+    if n == 11 and digits[0] == "0":
+        sizes = [4, 3, 2, 2]
+    elif n == 10:
+        sizes = [3, 3, 2, 2]
+    elif n == 12 and digits.startswith("90"):
+        sizes = [2, 3, 3, 2, 2]
+    else:
+        sizes = [3 if n % 2 else 2] + [2] * ((n - (3 if n % 2 else 2)) // 2)
+    groups, i = [], 0
+    for size in sizes:
+        groups.append(digits[i:i + size])
+        i += size
+    return groups
+
+
+def _read_group(group: str) -> str:
+    """A digit group as a number, each leading zero spoken as "sıfır": 0555 to "sıfır beş yüz elli beş"."""
+    rest = group.lstrip("0")
+    words = ["sıfır"] * (len(group) - len(rest))
+    if rest:
+        words.append(_int_to_turkish(int(rest)))
+    return " ".join(words)
+
+
+def _merge_repeats(groups: list[str]) -> list[str]:
+    """Join identical neighbouring groups (55 55 to 5555); the model loops on repeated words."""
+    merged: list[str] = []
+    for group in groups:
+        if merged and group == merged[-1] and group[0] != "0" and 2 * len(group) <= 4:
+            merged[-1] += group
+        else:
+            merged.append(group)
+    return merged
+
+
 def _spell_phone(match: re.Match) -> str:
-    """Phone-like match to digit words; shorter matches are left untouched."""
-    digits = "".join(ch for ch in match.group(0) if ch.isdigit())
-    return _spell_digits(digits) if len(digits) >= _MIN_PHONE_DIGITS else match.group(0)
+    """Phone-like match read group by group, each group as a number.
+
+    "0555 123 45 67" becomes "sıfır beş yüz elli beş, yüz yirmi üç, kırk beş, altmış yedi", the way
+    Turkish numbers are said aloud; digit by digit, the model repeats digits in runs like "555".
+    Shorter matches are left untouched.
+    """
+    text = match.group(0)
+    if sum(ch.isdigit() for ch in text) < _MIN_PHONE_DIGITS:
+        return text
+    groups = [g for part in re.split(r"\D+", text) if part for g in _group_digits(part)]
+    return ", ".join(_read_group(g) for g in _merge_repeats(groups))
 
 
 def _tr_three(n: int) -> str:

@@ -100,16 +100,19 @@ The model reads plain Turkish words. Before generation the package:
 
 - writes numbers, decimals, percentages, dates, clock times, money and units as words
   (`1.250,50 TL` becomes `bin iki yüz elli virgül elli Türk lirası`, `60 km/sa` becomes `saatte altmış kilometre`)
-- reads phone numbers and long codes digit by digit
+- reads phone numbers and long codes in groups, the way they are said aloud
+  (`0555 123 45 67` becomes `sıfır beş yüz elli beş, yüz yirmi üç, kırk beş, altmış yedi`)
 - expands common abbreviations and acronyms (`Dr.`, `Mah.`, `TBMM`)
 - replaces letters the model does not know (`w` becomes `v`, `x` becomes `ks`, `q` becomes `k`)
+- lowercases the first word of each sentence, which the model reads more reliably, and puts a
+  comma before it when there is no emotion tag
 - generates each sentence separately and joins them with a short pause
 
 To see exactly what the model will read:
 
 ```python
 tts.prepare("Toplam 2.345 TL, son ödeme 30.09.2026.")
-# ['Toplam iki bin üç yüz kırk beş Türk lirası, son ödeme otuz Eylül iki bin yirmi altı.']
+# [', toplam iki bin üç yüz kırk beş Türk lirası, son ödeme otuz Eylül iki bin yirmi altı.']
 ```
 
 The same conversion is available without the model, as `pocket_tts_turkish.normalize()` or
@@ -159,6 +162,7 @@ voice-cloning system received the same two reference voices.
 
 - Turkish only.
 - The first consonant of a sentence is occasionally clipped.
+- Long runs of the same digit, such as `00 00`, are occasionally misread.
 - Text is prepared by rules. Unusual formats, such as codes that mix letters and digits, may be read
   in an unexpected way; check them with `prepare()`.
 - The whole text is generated before it is returned; there is no streaming output yet.

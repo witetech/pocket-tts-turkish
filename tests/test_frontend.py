@@ -50,43 +50,50 @@ def test_split_sentences():
 
 
 def test_guard_first_word(frontend):
-    """A rare capitalized first word is lowercased; a comma keeps it lowercase when untagged."""
+    """A capitalized first word is lowercased; a comma keeps it lowercase when untagged."""
     assert frontend.guard_first_word("Hesabınıza giriş yapın.", tagged=True) == "hesabınıza giriş yapın."
     assert frontend.guard_first_word("Hesabınıza giriş yapın.", tagged=False) == ", hesabınıza giriş yapın."
-    assert frontend.guard_first_word("Merhaba dünya.", tagged=False) == "Merhaba dünya."
+    assert frontend.guard_first_word("Merhaba dünya.", tagged=False) == ", merhaba dünya."
+    assert frontend.guard_first_word("İstanbul'a gidiyoruz.", tagged=True) == "istanbul'a gidiyoruz."
     assert frontend.guard_first_word('"Hesabınıza" yazın.', tagged=True) == '"hesabınıza" yazın.'
+
+
+def test_guard_leaves_lowercase_and_acronyms(frontend):
+    """Words that are already lowercase, or written in capitals, are not touched."""
+    assert frontend.guard_first_word("merhaba dünya.", tagged=False) == "merhaba dünya."
+    assert frontend.guard_first_word("SMS gönderildi.", tagged=False) == "SMS gönderildi."
 
 
 def test_prepare_normalizes_and_tags_every_sentence(frontend):
     """Numbers become words, sentences are split and each carries the tag."""
     assert frontend.prepare("Ücret 50 TL. Hesabınıza yatırıldı.", "calm") == [
-        "[sakin] Ücret elli Türk lirası.",
+        "[sakin] ücret elli Türk lirası.",
         "[sakin] hesabınıza yatırıldı.",
     ]
 
 
 def test_prepare_without_emotion(frontend):
-    """No tag, and the guard comma for an untagged rare first word."""
-    assert frontend.prepare("Merhaba. Hesabınıza bakalım.") == ["Merhaba.", ", hesabınıza bakalım."]
+    """No tag, and the guard comma for an untagged first word."""
+    assert frontend.prepare("Merhaba. Hesabınıza bakalım.") == [", merhaba.", ", hesabınıza bakalım."]
 
 
 def test_prepare_leading_tag(frontend):
     """A tag in the text is used when no emotion is given; an explicit emotion wins; other brackets are dropped."""
-    assert frontend.prepare("[mutlu] Harika bir haber!") == ["[mutlu] Harika bir haber!"]
-    assert frontend.prepare("[mutlu] Harika bir haber!", emotion="sad") == ["[üzgün] Harika bir haber!"]
-    assert frontend.prepare("[not] Merhaba.") == ["Merhaba."]
+    assert frontend.prepare("[mutlu] Harika bir haber!") == ["[mutlu] harika bir haber!"]
+    assert frontend.prepare("[mutlu] Harika bir haber!", emotion="sad") == ["[üzgün] harika bir haber!"]
+    assert frontend.prepare("[not] Merhaba.") == [", merhaba."]
 
 
 def test_prepare_drops_sentences_with_nothing_to_say(frontend):
     """Punctuation-only pieces are not sent to the model."""
-    assert frontend.prepare("Tamam! -") == ["Tamam!"]
+    assert frontend.prepare("Tamam! -") == [", tamam!"]
     assert frontend.prepare("") == []
 
 
 def test_prepare_uses_pronunciations():
     """Respellings are applied before everything else."""
     front = TextFrontend(FakeTokenizer(), pronunciations={"Kadıköy": "Kadıköyü"})
-    assert front.prepare("Kadıköy şubesi.") == ["Kadıköyü şubesi."]
+    assert front.prepare("Kadıköy şubesi.") == [", kadıköyü şubesi."]
 
 
 def test_prepare_rejects_non_text(frontend):

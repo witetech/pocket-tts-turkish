@@ -4,7 +4,7 @@ import re
 from collections.abc import Mapping
 from pathlib import Path
 
-from .normalize import normalize
+from .normalizer import normalize
 
 __all__ = ["EMOTIONS", "TextFrontend", "resolve_emotion"]
 
@@ -84,19 +84,16 @@ class TextFrontend:
         return re.sub(r"\s+([.,;:!?])", r"\1", fitted)
 
     def guard_first_word(self, sentence: str, tagged: bool) -> str:
-        """Lowercase a sentence-initial word whose capitalized form is a single rare piece.
+        """Lowercase a capitalized first word, which the model tends to skip or clip.
 
-        The model skips such words; lowercased they split into common pieces. Without an emotion
-        tag a leading comma keeps the library from capitalizing the word again.
+        The model reads a lowercase sentence start more reliably. Without an emotion tag a leading
+        comma keeps the library from capitalizing the word again.
         """
         m = _FIRST_WORD.match(sentence)
         if m is None:
             return sentence
         lead, word, rest = m.groups()
-        low = _lower_first(word)
-        if len(self._sp.encode(word)) == 1 and len(self._sp.encode(low)) > 1:
-            return f"{lead}{'' if tagged else ', '}{low}{rest}"
-        return sentence
+        return f"{lead}{'' if tagged else ', '}{_lower_first(word)}{rest}"
 
     def prepare(self, text: str, emotion: str | None = None) -> list[str]:
         """The sentences the model will speak, each with the emotion tag in front.
