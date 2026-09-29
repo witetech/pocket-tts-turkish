@@ -1,12 +1,12 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-fancy-pypi-readme>=24"]
 build-backend = "hatchling.build"
 
 [project]
 name = "pocket-tts-turkish"
 version = "0.1.0"
-description = "Turkish text-to-speech on Pocket TTS, with the text preparation the model needs"
-readme = "README.md"
+description = "Turkish text-to-speech that runs on a CPU, built on Pocket TTS"
+dynamic = ["readme"]
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
@@ -38,6 +38,17 @@ pocket-tts-turkish = "pocket_tts_turkish.cli:main"
 [project.urls]
 Homepage = "https://github.com/witetech/pocket-tts-turkish"
 Model = "https://huggingface.co/wite-tech/pocket-tts-turkish-6l"
+
+# PyPI cannot resolve relative links, so images point at the repository there.
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\]\((assets/[^)]+)\)'
+replacement = '](https://raw.githubusercontent.com/witetech/pocket-tts-turkish/main/\1)'
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pocket_tts_turkish"]

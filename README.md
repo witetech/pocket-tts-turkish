@@ -2,9 +2,7 @@
 
 Turkish text-to-speech that runs on an ordinary CPU. This package runs the
 [Pocket TTS Turkish](https://huggingface.co/wite-tech/pocket-tts-turkish-6l) model, a 6-layer
-Turkish version of [Kyutai's Pocket TTS](https://github.com/kyutai-labs/pocket-tts), and adds the
-text preparation the model needs: numbers, dates, times, prices and units are written out in
-Turkish, and longer text is spoken one sentence at a time.
+Turkish version of [Kyutai's Pocket TTS](https://github.com/kyutai-labs/pocket-tts).
 
 - About 5 times faster than real time on a single CPU thread, about 20 times on a GPU
 - About 110 million parameters, 24 kHz output
@@ -74,52 +72,53 @@ recordings of real people.
 Pass the tag or its English name as `emotion`; leave it out for a neutral voice. A tag can also
 start the text itself, for example `"[mutlu] Harika bir haber aldım!"`.
 
-## Cloning a voice
+## Using your own voice
+
+Give the package a short recording of a voice, and it speaks any text in that voice. Use 5 to 10
+seconds of clear speech from one person, in WAV, FLAC, OGG or MP3.
 
 ```python
 voice = tts.voice_from_file("kayit.wav")
 audio = tts.generate("Bu cümleyi benim sesimle okuyun.", voice=voice)
 ```
 
-Use a clean recording of a single speaker, 5 to 10 seconds long. WAV, FLAC, OGG and MP3 all work.
-The model needs a reference that stops between two words in the middle of a sentence: a reference
-that ends in silence, or sounds finished, makes the model continue that sentence instead of reading
-your text. `voice_from_file` therefore cuts the recording at a pause 3 to 5 seconds in, and warns
-when it cannot find one. To cut a recording and listen to the result first:
+From the command line:
 
 ```bash
-pocket-tts-turkish cut-reference kayit.wav referans.wav
-pocket-tts-turkish generate --text "Merhaba." --voice-file referans.wav -o test.wav
+pocket-tts-turkish generate --text "Bu cümleyi benim sesimle okuyun." --voice-file kayit.wav -o sesim.wav
 ```
+
+The recording is prepared automatically. Natural speech with short pauses between words works best;
+if the recording cannot be prepared well, you get a warning.
 
 Only clone a voice with its owner's permission; see [Responsible use](#responsible-use).
 
-## Text preparation
+## Writing the text
 
-The model reads plain Turkish words. Before generation the package:
+Write Turkish text as you normally would. Numbers, dates, times, prices, units, phone numbers and
+common abbreviations are read correctly:
 
-- writes numbers, decimals, percentages, dates, clock times, money and units as words
-  (`1.250,50 TL` becomes `bin iki yüz elli virgül elli Türk lirası`, `60 km/sa` becomes `saatte altmış kilometre`)
-- reads phone numbers and long codes in groups, the way they are said aloud
-  (`0555 123 45 67` becomes `sıfır beş yüz elli beş, yüz yirmi üç, kırk beş, altmış yedi`)
-- expands common abbreviations and acronyms (`Dr.`, `Mah.`, `TBMM`)
-- replaces letters the model does not know (`w` becomes `v`, `x` becomes `ks`, `q` becomes `k`)
-- lowercases the first word of each sentence, which the model reads more reliably, and puts a
-  comma before it when there is no emotion tag
-- generates each sentence separately and joins them with a short pause
+| you write | it is read as |
+|---|---|
+| `1.250,50 TL` | bin iki yüz elli virgül elli Türk lirası |
+| `15.10.2026` | on beş Ekim iki bin yirmi altı |
+| `14:30` | on dört otuz |
+| `%25` | yüzde yirmi beş |
+| `60 km/sa` | saatte altmış kilometre |
+| `0555 123 45 67` | sıfır beş yüz elli beş, yüz yirmi üç, kırk beş, altmış yedi |
+| `Dr. Ayşe Yılmaz` | Doktor Ayşe Yılmaz |
 
-To see exactly what the model will read:
+To check how a text will be read, without loading the model:
 
-```python
-tts.prepare("Toplam 2.345 TL, son ödeme 30.09.2026.")
-# [', toplam iki bin üç yüz kırk beş Türk lirası, son ödeme otuz Eylül iki bin yirmi altı.']
+```bash
+pocket-tts-turkish normalize --text "Toplam 2.345 TL, son ödeme 30.09.2026."
+# Toplam iki bin üç yüz kırk beş Türk lirası, son ödeme otuz Eylül iki bin yirmi altı.
 ```
 
-The same conversion is available without the model, as `pocket_tts_turkish.normalize()` or
-`pocket-tts-turkish normalize --text "..."`. Words the model mispronounces can be respelled:
+If a word is pronounced wrongly, for example a brand name, tell the package how it sounds:
 
 ```python
-tts = TurkishTTS.from_pretrained(pronunciations={"WhatsApp": "Vatsap", "iPhone": "ayfon"})
+tts = TurkishTTS.from_pretrained(pronunciations={"iPhone": "ayfon"})
 ```
 
 ## Evaluation
@@ -134,7 +133,7 @@ that Whisper large-v3 transcribes differently from the input text, measured on a
 
 ### Speed and accuracy
 
-![Speed against intelligibility](https://huggingface.co/wite-tech/pocket-tts-turkish-6l/resolve/main/figures/fig2_speed_vs_wer.png)
+![Speed against intelligibility](assets/fig2_speed_vs_wer.png)
 
 Each bubble is one system. Its horizontal position is the real-time factor, the synthesis time
 divided by the length of the audio, on a log scale: further left is faster, and 0.1 means ten times
@@ -148,7 +147,7 @@ Piper and MMS-TTS, make more errors (3.2% and 6.1%) and cannot clone a voice.
 
 ### What a real-time voice agent needs
 
-![What a real-time voice agent needs, and which systems deliver it](https://huggingface.co/wite-tech/pocket-tts-turkish-6l/resolve/main/figures/fig8_capability_matrix.png)
+![What a real-time voice agent needs, and which systems deliver it](assets/fig8_capability_matrix.png)
 
 The columns are nine requirements for a voice agent that answers in real time: it streams audio,
 clones a reference voice, has an emotion control, runs on a CPU faster than real time, keeps the WER
@@ -163,7 +162,6 @@ marked as not running on one.
 ## Limitations
 
 - Turkish only.
-- The whole text is generated before it is returned; there is no streaming output yet.
 
 ## Responsible use
 
