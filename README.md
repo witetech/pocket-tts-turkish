@@ -45,6 +45,21 @@ pocket-tts-turkish generate --text-file metin.txt --emotion mutlu -o metin.wav
 pocket-tts-turkish voices
 ```
 
+## Streaming
+
+`stream` yields the audio in short pieces while it is being generated, so playback can start at
+once: the first piece is ready in under 0.1 seconds on one CPU thread and under 0.02 seconds on a
+GPU. The very first call takes a little longer, about 0.4 seconds on a CPU, while the voice is
+prepared. Joined together, the pieces are exactly the audio `generate` returns.
+
+```python
+for chunk in tts.stream("Randevunuz 15.10.2026 saat 14:30'da. Ücret 1.250 TL.", voice="female_1"):
+    ...  # a NumPy float32 array at 24 kHz; send it to your audio output
+```
+
+It takes the same options as `generate`. Leaving the loop early, for example when the listener
+interrupts, stops generating the rest of the text.
+
 ## Voices
 
 | voice | character |

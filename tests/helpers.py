@@ -23,23 +23,42 @@ class FakeTokenizer:
 
 
 class FakeModel:
-    """Stands in for the Pocket TTS model: one second of ones per sentence."""
+    """Stands in for the Pocket TTS model: one second per sentence, in four pieces, like the library."""
 
     sample_rate = SR
+    pieces = 4
 
     def __init__(self):
-        """Record encoded voices and spoken sentences."""
-        self.encoded, self.spoken = [], []
+        """Record encoded voices, spoken sentences, produced pieces and stop requests."""
+        self.encoded, self.spoken, self.stops = [], [], []
+        self.produced = 0
 
     def get_state_for_audio_prompt(self, audio):
         """Return the prompt itself as the voice state."""
         self.encoded.append(audio)
         return audio
 
-    def generate_audio(self, state, text):
-        """Return one second of ones."""
+    def generate_audio_stream(self, state, text, stop=None):
+        """Yield the sentence in pieces with distinct values; end early once ``stop`` is set."""
         self.spoken.append(text)
-        return torch.ones(1, SR)
+        self.stops.append(stop)
+        for k in range(self.pieces):
+            if stop is not None and stop.is_set():
+                return
+            self.produced += 1
+            yield torch.full((SR // self.pieces,), 0.1 * (k + 1))
+
+    def generate_audio(self, state, text):
+        """The joined stream, as in the library."""
+        return torch.cat(list(self.generate_audio_stream(state, text)))
+
+
+class FakeModelNoStop(FakeModel):
+    """A model whose stream cannot be stopped, like pocket-tts 3.1."""
+
+    def generate_audio_stream(self, state, text):
+        """Yield the sentence in pieces; there is no stop signal."""
+        yield from super().generate_audio_stream(state, text)
 
 
 def speech(total_s, segments, sr=SR, seed=0):
