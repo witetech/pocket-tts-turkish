@@ -543,13 +543,13 @@ def _expand(text: str) -> str:
 def normalize(text: str, pronunciations: dict[str, str] | None = None) -> str:
     """Write numbers, dates, times, units, currencies and symbols out as Turkish words.
 
-    ``pronunciations`` maps words to respellings applied first (whole word, any case);
-    ``None`` uses ``DEFAULT_PRONUNCIATIONS`` and ``{}`` disables respelling.
+    ``pronunciations`` maps words to respellings (whole word, any case). They are added to
+    ``DEFAULT_PRONUNCIATIONS``; an entry for the same word replaces the built-in one.
     """
     if not isinstance(text, str):
         raise TypeError(f"text must be str, not {type(text).__name__}")
     if pronunciations is not None and not isinstance(pronunciations, Mapping):
         raise TypeError("pronunciations must be a mapping of word to respelling")
-    text = _respell(text, DEFAULT_PRONUNCIATIONS if pronunciations is None else pronunciations)
+    text = _respell(text, {**DEFAULT_PRONUNCIATIONS, **(pronunciations or {})})
     text = _PHONE_RE.sub(_spell_phone, text)
     return _expand(text)

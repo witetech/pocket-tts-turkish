@@ -277,11 +277,12 @@ def test_emoji_are_removed():
 
 
 def test_pronunciations():
-    """Default respellings, a custom dictionary, and none at all."""
+    """Built-in respellings apply; user entries are added to them and can replace one."""
     assert "WhatsApp" in DEFAULT_PRONUNCIATIONS
     assert normalize("WhatsApp hattımız") == "Vatsap hattımız"
-    assert normalize("Kadıköy şubesi", pronunciations={"Kadıköy": "Kadıköyü"}) == "Kadıköyü şubesi"
-    assert normalize("WhatsApp hattımız", pronunciations={}) == "WhatsApp hattımız"
+    assert normalize("WhatsApp ve iPhone", pronunciations={"iPhone": "ayfon"}) == "Vatsap ve ayfon"
+    assert normalize("WhatsApp hattımız", pronunciations={"WhatsApp": "Uatsap"}) == "Uatsap hattımız"
+    assert normalize("WhatsApp hattımız", pronunciations={}) == "Vatsap hattımız"
 
 
 def test_no_digits_or_symbols_survive_a_realistic_reply():

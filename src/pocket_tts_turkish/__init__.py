@@ -1,4 +1,4 @@
-"""Turkish text-to-speech on Pocket TTS, with the text preparation the model needs."""
+"""Turkish text-to-speech that runs on a CPU, built on Pocket TTS."""
 
 from .audio import cut_reference, find_cut, load_audio, save_wav
 from .frontend import EMOTIONS, TextFrontend, resolve_emotion

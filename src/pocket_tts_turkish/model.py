@@ -125,7 +125,8 @@ class TurkishTTS:
         """Load from a Hugging Face repo id or a local folder.
 
         The folder holds ``config.yaml``, ``model.safetensors``, ``tokenizer.model`` and ``voices/*.wav``.
-        ``device`` is "auto", "cpu" or "cuda"; ``pronunciations`` is passed to ``normalize``.
+        ``device`` is "auto", "cpu" or "cuda"; ``pronunciations`` adds respellings for words the
+        model mispronounces (see ``normalize``).
         """
         folder = _model_folder(source, revision, token)
         missing = [name for name in _REQUIRED if not (folder / name).is_file()]
