@@ -1,11 +1,12 @@
 """TurkishTTS: loads the model and its voices and speaks prepared sentences."""
 
+import inspect
 import os
 import re
 import tempfile
 import threading
 import warnings
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 
 import numpy as np
@@ -98,7 +99,8 @@ class TurkishTTS:
     """Turkish Pocket TTS with the text preparation the model needs.
 
     Load with ``TurkishTTS.from_pretrained()``; ``generate()`` returns mono float32 audio at
-    ``sample_rate`` (24 kHz). One instance is safe to share between threads; calls run one at a time.
+    ``sample_rate`` (24 kHz) and ``stream()`` yields it piece by piece. One instance is safe to share
+    between threads; calls run one at a time.
     """
 
     def __init__(self, model, frontend: TextFrontend, voice_files: Mapping[str, Path]):
@@ -111,6 +113,9 @@ class TurkishTTS:
         self._custom: set[str] = set()
         self._states: dict[str, object] = {}
         self._lock = threading.Lock()
+        stream_fn = getattr(model, "generate_audio_stream", None)
+        # pocket-tts 3.3 can stop a generation early; 3.1 finishes the sentence first.
+        self._can_stop = stream_fn is not None and "stop" in inspect.signature(stream_fn).parameters
 
     @classmethod
     def from_pretrained(
@@ -187,13 +192,22 @@ class TurkishTTS:
             self._custom.add(name)
         return name
 
+    def _check(self, text: str, voice: str | None, emotion: str | None, sentence_gap_ms: float) -> tuple[list[str], str]:
+        """Validate a request; return the prepared sentences and the voice name."""
+        if not isinstance(sentence_gap_ms, (int, float)) or sentence_gap_ms < 0:
+            raise ValueError("sentence_gap_ms must be a number >= 0")
+        voice = voice or self.default_voice
+        if not isinstance(voice, str) or (voice not in self._states and voice not in self._voice_files):
+            raise ValueError(f"unknown voice {voice!r}; available: {', '.join(self.voices)}")
+        sentences = self.prepare(text, emotion)
+        if not sentences:
+            raise ValueError("text has nothing to speak")
+        return sentences, voice
+
     def _voice_state(self, voice: str):
         """Encoded voice prompt, computed once per voice."""
-        if isinstance(voice, str) and voice in self._states:
-            return self._states[voice]
-        if not isinstance(voice, str) or voice not in self._voice_files:
-            raise ValueError(f"unknown voice {voice!r}; available: {', '.join(self.voices)}")
-        self._states[voice] = self._model.get_state_for_audio_prompt(self._voice_files[voice])
+        if voice not in self._states:
+            self._states[voice] = self._model.get_state_for_audio_prompt(self._voice_files[voice])
         return self._states[voice]
 
     def generate(
@@ -211,15 +225,11 @@ class TurkishTTS:
         name, or ``None`` for neutral. Each sentence is generated separately; ``seed`` makes the
         output repeatable.
         """
-        if not isinstance(sentence_gap_ms, (int, float)) or sentence_gap_ms < 0:
-            raise ValueError("sentence_gap_ms must be a number >= 0")
-        sentences = self.prepare(text, emotion)
-        if not sentences:
-            raise ValueError("text has nothing to speak")
+        sentences, voice = self._check(text, voice, emotion, sentence_gap_ms)
         import torch
 
         with self._lock:
-            state = self._voice_state(voice or self.default_voice)
+            state = self._voice_state(voice)
             if seed is not None:
                 torch.manual_seed(seed)
             parts = [
@@ -227,3 +237,61 @@ class TurkishTTS:
                 for sentence in sentences
             ]
         return _join(parts, self.sample_rate, sentence_gap_ms)
+
+    def stream(
+        self,
+        text: str,
+        voice: str | None = None,
+        emotion: str | None = None,
+        *,
+        seed: int | None = None,
+        sentence_gap_ms: float = SENTENCE_GAP_MS,
+    ) -> Iterator[np.ndarray]:
+        """Speak ``text`` piece by piece: yield mono float32 audio at ``sample_rate`` as soon as it is ready.
+
+        Takes the same arguments as ``generate``, and the pieces joined together are the audio it
+        returns. Pieces are about 80 ms long. Stopping the loop early stops the generation.
+        """
+        sentences, voice = self._check(text, voice, emotion, sentence_gap_ms)
+        return self._stream(sentences, voice, seed, sentence_gap_ms)
+
+    def _stream(self, sentences: list[str], voice: str, seed: int | None, gap_ms: float) -> Iterator[np.ndarray]:
+        """Yield each sentence as the model produces it, with the same fades and pauses as ``generate``."""
+        import torch
+
+        fade = int(self.sample_rate * _FADE_MS / 1000)
+        gap = np.zeros(int(self.sample_rate * gap_ms / 1000), dtype=np.float32)
+        with self._lock:
+            state = self._voice_state(voice)
+            if seed is not None:
+                torch.manual_seed(seed)
+            for i, sentence in enumerate(sentences):
+                last = i == len(sentences) - 1
+                if i:
+                    yield gap.copy()
+                stop = threading.Event()
+                chunks = self._model.generate_audio_stream(state, sentence, **({"stop": stop} if self._can_stop else {}))
+                try:
+                    held, first = None, True
+                    for chunk in chunks:
+                        piece = chunk.detach().cpu().numpy().reshape(-1).astype(np.float32)
+                        if first and i:
+                            n = min(len(piece), fade)
+                            piece[:n] *= np.linspace(0.0, 1.0, n, dtype=np.float32)
+                        first = False
+                        if last:
+                            yield piece
+                            continue
+                        # The last piece of a sentence is held back to fade it out before the pause.
+                        if held is not None:
+                            yield held
+                        held = piece
+                    if held is not None:
+                        n = min(len(held), fade)
+                        held[len(held) - n:] *= np.linspace(1.0, 0.0, n, dtype=np.float32)
+                        yield held
+                finally:
+                    # Let the library's threads finish before the model is used again.
+                    stop.set()
+                    for _ in chunks:
+                        pass
