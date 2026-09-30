@@ -1,7 +1,7 @@
 # pocket-tts-turkish
 
 Turkish text-to-speech that runs on an ordinary CPU. This package runs the
-[Pocket TTS Turkish](https://huggingface.co/wite-tech/pocket-tts-turkish-6l) model, a 6-layer
+[Pocket TTS Turkish](https://huggingface.co/wite-tech/pocket-tts-turkish) model, a 6-layer
 Turkish version of [Kyutai's Pocket TTS](https://github.com/kyutai-labs/pocket-tts).
 
 - About 5 times faster than real time on a single CPU thread, about 20 times on a GPU
@@ -196,9 +196,9 @@ TTS, which is also released under CC-BY-4.0.
 ```bibtex
 @misc{pocket_tts_turkish_2026,
   title  = {Pocket TTS Turkish},
-  author = {{Wite Tech}},
+  author = {Khaled Moawad and Ammar Rashed and Ekrem Çetinkaya},
   year   = {2026},
-  url    = {https://huggingface.co/wite-tech/pocket-tts-turkish-6l}
+  url    = {https://huggingface.co/wite-tech/pocket-tts-turkish}
 }
 ```
 
