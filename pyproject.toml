@@ -37,7 +37,7 @@ pocket-tts-turkish = "pocket_tts_turkish.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/witetech/pocket-tts-turkish"
-Model = "https://huggingface.co/wite-tech/pocket-tts-turkish-6l"
+Model = "https://huggingface.co/wite-tech/pocket-tts-turkish"
 
 # PyPI cannot resolve relative links, so images point at the repository there.
 [tool.hatch.metadata.hooks.fancy-pypi-readme]

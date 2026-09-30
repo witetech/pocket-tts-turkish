@@ -16,7 +16,7 @@ from .frontend import TextFrontend
 
 __all__ = ["DEFAULT_REPO", "TurkishTTS"]
 
-DEFAULT_REPO = "wite-tech/pocket-tts-turkish-6l"
+DEFAULT_REPO = "wite-tech/pocket-tts-turkish"
 SENTENCE_GAP_MS = 150
 _FADE_MS = 8.0
 _MAX_UNCUT_S = 30.0
